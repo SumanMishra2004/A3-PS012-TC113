@@ -1,0 +1,41 @@
+# DNS Probe Configuration
+# Rate limiting, timeouts, retries, reproducibility seed
+
+rate_control:
+  global_qps: 5              # Queries per second (default, hard cap 20)
+  per_server_qps: 1          # Per-server QPS (default, hard cap 5)
+  max_inflight: 4            # Max concurrent queries (default, hard cap 10)
+  global_query_budget: 1000  # Total queries per run
+
+probe:
+  timeout_seconds: 5         # Per-query timeout
+  max_retries: 3             # Max retries per probe
+  backoff_base: 1.5          # Exponential backoff multiplier
+  jitter_fraction: 0.1       # Random jitter as fraction of timeout
+
+probe_design:
+  # Probe A: Authoritative check (www.lab.test A)
+  probe_a_qname: "www.lab.test"
+  probe_a_qtype: "A"
+  probe_a_rd: true           # Recursion desired bit
+
+  # Probe B: Recursion check (<nonce>.probe.ext.lab A)
+  probe_b_domain: "probe.ext.lab"
+  probe_b_qtype: "A"
+  probe_b_rd: true
+
+  # Probe C: Control (same as B but RD=0)
+  probe_c_rd: false
+
+expected_answers:
+  lab_test_a: "10.10.0.10"      # Expected answer for www.lab.test
+  probe_ext_lab: "10.10.0.99"   # Expected answer for *.probe.ext.lab
+
+network:
+  try_udp: true              # Try UDP first
+  fallback_tcp: true         # Fallback to TCP on TC bit
+  port: 53                   # Standard DNS port
+
+reproducibility:
+  seed: 42                   # Seed for deterministic nonces and jitter
+  deterministic_order: true  # Process targets in deterministic order

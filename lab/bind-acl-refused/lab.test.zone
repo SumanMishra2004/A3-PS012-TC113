@@ -1,0 +1,14 @@
+; Zone file for lab.test (authoritative)
+$TTL 300
+@   IN  SOA ns.lab.test. admin.lab.test. (
+                2024010101  ; serial
+                3600        ; refresh
+                1800        ; retry
+                604800      ; expire
+                86400 )     ; minimum
+
+@   IN  NS  ns.lab.test.
+ns  IN  A   10.10.0.101
+
+www IN  A   10.10.0.10
+test IN A   10.10.0.11

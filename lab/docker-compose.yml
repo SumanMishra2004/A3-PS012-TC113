@@ -1,0 +1,179 @@
+version: '3.8'
+
+# Fixed bridge network with static IPs for deterministic lab environment
+networks:
+  lab_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.10.0.0/24
+
+services:
+
+  # Open recursive resolver
+  bind-open:
+    image: ubuntu:22.04
+    networks:
+      lab_net:
+        ipv4_address: 10.10.0.101
+    ports:
+      - "53:53/udp"
+      - "53:53/tcp"
+    volumes:
+      - ./bind-open/named.conf:/etc/bind/named.conf
+      - ./bind-open/lab.test.zone:/etc/bind/zones/lab.test.zone
+    command: /bin/sh -c "apt-get update && apt-get install -y bind9 && /usr/sbin/named -f -u bind"
+    healthcheck:
+      test: ["CMD", "dig", "@127.0.0.1", "www.lab.test"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # BIND with ACL refusing recursion
+  bind-acl-refused:
+    image: ubuntu:22.04
+    networks:
+      lab_net:
+        ipv4_address: 10.10.0.102
+    ports:
+      - "53:53/udp"
+      - "53:53/tcp"
+    volumes:
+      - ./bind-acl-refused/named.conf:/etc/bind/named.conf
+      - ./bind-acl-refused/lab.test.zone:/etc/bind/zones/lab.test.zone
+    command: /bin/sh -c "apt-get update && apt-get install -y bind9 && /usr/sbin/named -f -u bind"
+    healthcheck:
+      test: ["CMD", "dig", "@127.0.0.1", "www.lab.test"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # BIND authoritative only
+  bind-auth-only:
+    image: ubuntu:22.04
+    networks:
+      lab_net:
+        ipv4_address: 10.10.0.103
+    ports:
+      - "53:53/udp"
+      - "53:53/tcp"
+    volumes:
+      - ./bind-auth-only/named.conf:/etc/bind/named.conf
+      - ./bind-auth-only/lab.test.zone:/etc/bind/zones/lab.test.zone
+    command: /bin/sh -c "apt-get update && apt-get install -y bind9 && /usr/sbin/named -f -u bind"
+    healthcheck:
+      test: ["CMD", "dig", "@127.0.0.1", "www.lab.test"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Unbound open resolver
+  unbound-open:
+    image: ubuntu:22.04
+    networks:
+      lab_net:
+        ipv4_address: 10.10.0.104
+    ports:
+      - "53:53/udp"
+      - "53:53/tcp"
+    volumes:
+      - ./unbound-open/unbound.conf:/etc/unbound/unbound.conf
+    command: /bin/sh -c "apt-get update && apt-get install -y unbound && /usr/sbin/unbound -d"
+    healthcheck:
+      test: ["CMD", "dig", "@127.0.0.1", "www.lab.test"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Unbound with refuse ACL
+  unbound-refuse:
+    image: ubuntu:22.04
+    networks:
+      lab_net:
+        ipv4_address: 10.10.0.105
+    ports:
+      - "53:53/udp"
+      - "53:53/tcp"
+    volumes:
+      - ./unbound-refuse/unbound.conf:/etc/unbound/unbound.conf
+    command: /bin/sh -c "apt-get update && apt-get install -y unbound && /usr/sbin/unbound -d"
+    healthcheck:
+      test: ["CMD", "dig", "@127.0.0.1", "www.lab.test"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Blackhole (drops packets)
+  blackhole:
+    image: ubuntu:22.04
+    networks:
+      lab_net:
+        ipv4_address: 10.10.0.106
+    ports:
+      - "53:53/udp"
+      - "53:53/tcp"
+    command: /bin/sh -c "apt-get update && apt-get install -y nc && nc -u -l 53 > /dev/null 2>&1"
+
+  # Flaky responder (intermittent)
+  flaky:
+    image: ubuntu:22.04
+    networks:
+      lab_net:
+        ipv4_address: 10.10.0.107
+    ports:
+      - "53:53/udp"
+      - "53:53/tcp"
+    volumes:
+      - ./flaky/run.sh:/run.sh
+    command: /bin/sh /run.sh
+
+  # RA flag without valid answer
+  ra-misleading:
+    image: ubuntu:22.04
+    networks:
+      lab_net:
+        ipv4_address: 10.10.0.108
+    ports:
+      - "53:53/udp"
+      - "53:53/tcp"
+    volumes:
+      - ./ra-misleading/server.py:/server.py
+    command: /bin/sh -c "apt-get update && apt-get install -y python3 && python3 /server.py"
+
+  # Authoritative server for ext.lab (logs queries)
+  upstream-auth:
+    image: ubuntu:22.04
+    networks:
+      lab_net:
+        ipv4_address: 10.10.0.200
+    ports:
+      - "53:53/udp"
+      - "53:53/tcp"
+    volumes:
+      - ./upstream-auth/named.conf:/etc/bind/named.conf
+      - ./upstream-auth/ext.lab.zone:/etc/bind/zones/ext.lab.zone
+      - ./upstream-auth/query.log:/var/log/named/query.log
+    command: /bin/sh -c "apt-get update && apt-get install -y bind9 && mkdir -p /var/log/named && touch /var/log/named/query.log && /usr/sbin/named -f -u bind"
+    healthcheck:
+      test: ["CMD", "dig", "@127.0.0.1", "test.ext.lab"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # Client container for vantage point
+  client:
+    image: ubuntu:22.04
+    networks:
+      lab_net:
+        ipv4_address: 10.10.0.50
+    volumes:
+      - ..:/app
+    working_dir: /app
+    command: /bin/bash -c "apt-get update && apt-get install -y python3 python3-pip dnsutils curl && pip install -e . && sleep infinity"
+    depends_on:
+      - bind-open
+      - bind-acl-refused
+      - bind-auth-only
+      - unbound-open
+      - unbound-refuse
+      - upstream-auth

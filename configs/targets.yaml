@@ -1,0 +1,58 @@
+# DNS Resolver Targets Allowlist
+# Format: explicit allowlist of lab servers to probe
+# Fields: name, ip, port, expected_class, notes
+
+targets:
+  - name: "bind-open"
+    ip: "10.10.0.101"
+    port: 53
+    expected_class: "RECURSIVE"
+    notes: "BIND with recursion enabled (allow-recursion any;)"
+
+  - name: "bind-acl-refused"
+    ip: "10.10.0.102"
+    port: 53
+    expected_class: "REFUSED"
+    notes: "BIND with ACL refusing recursion to our subnet"
+
+  - name: "bind-auth-only"
+    ip: "10.10.0.103"
+    port: 53
+    expected_class: "AUTHORITATIVE_ONLY"
+    notes: "BIND with recursion disabled, authoritative for lab.test"
+
+  - name: "unbound-open"
+    ip: "10.10.0.104"
+    port: 53
+    expected_class: "RECURSIVE"
+    notes: "Unbound resolver, open recursion"
+
+  - name: "unbound-refuse"
+    ip: "10.10.0.105"
+    port: 53
+    expected_class: "REFUSED"
+    notes: "Unbound with access-control: refuse for our subnet"
+
+  - name: "blackhole"
+    ip: "10.10.0.106"
+    port: 53
+    expected_class: "INCONCLUSIVE"
+    notes: "Drops all packets (timeout case)"
+
+  - name: "flaky"
+    ip: "10.10.0.107"
+    port: 53
+    expected_class: "INCONCLUSIVE"
+    notes: "Intermittent responses (flaky case)"
+
+  - name: "ra-misleading"
+    ip: "10.10.0.108"
+    port: 53
+    expected_class: "INCONCLUSIVE"
+    notes: "Sets RA flag but returns no valid recursive answer"
+
+  - name: "upstream-auth"
+    ip: "10.10.0.200"
+    port: 53
+    expected_class: "AUTHORITATIVE_ONLY"
+    notes: "Authoritative for ext.lab zone, logs all queries (NOT a probe target, reference only)"

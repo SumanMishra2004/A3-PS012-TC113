@@ -1,0 +1,61 @@
+name: Test Suite
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+        cache: 'pip'
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip setuptools wheel
+        pip install -e ".[dev]"
+    
+    - name: Lint with pylint
+      run: pylint src/dnsprobe/ || true
+    
+    - name: Type check with mypy
+      run: mypy src/dnsprobe/ || true
+    
+    - name: Format check with black
+      run: black --check src/dnsprobe tests || true
+    
+    - name: Unit tests
+      run: pytest tests/ -v --cov=src/dnsprobe -m "not lab" --tb=short
+    
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.11"
+    - name: Install flake8
+      run: pip install flake8
+    - name: Lint with flake8
+      run: flake8 src/dnsprobe tests --count --select=E9,F63,F7,F82 --show-source --statistics

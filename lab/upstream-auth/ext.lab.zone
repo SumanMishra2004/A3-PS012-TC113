@@ -1,0 +1,19 @@
+; Zone file for ext.lab (authoritative upstream server)
+; Wildcard for probe.ext.lab to test recursion
+
+$TTL 300
+@   IN  SOA ns.ext.lab. admin.ext.lab. (
+                2024010101  ; serial
+                3600        ; refresh
+                1800        ; retry
+                604800      ; expire
+                86400 )     ; minimum
+
+@   IN  NS  ns.ext.lab.
+ns  IN  A   10.10.0.200
+
+; Wildcard: any subdomain under probe.ext.lab
+*.probe.ext.lab IN A 10.10.0.99
+
+; Specific test records
+test IN A 10.10.0.99
